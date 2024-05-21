@@ -9,7 +9,7 @@ The intent of this driver is such that you can use your favorite joystick with t
 
 <li>Read the README (you are doing this now) and the <a href="https://github.com/sgushy/esp-idf-logitech-joystick/blob/main/LICENSE">license</a>.</li>
 
-<li>Clone the repository to your computer using your favorite Git implementation.</li>
+<li>Clone the repository to your computer, such as using `git clone https://github.com/sgushy/esp-idf-logitech-joystick.git`</li>
 
 <li><a href="https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html">Make sure you have installed ESP-IDF with VS Code, Eclipse, or so on...</a></li>
 

@@ -14,6 +14,3 @@ The intent of this driver is such that you can use your favorite joystick with t
 
 <li>Check out the example in <code>/main/example_usage.c</code></li>
 
-<h2>See it in action!</h2>
-
-(Coming soon)

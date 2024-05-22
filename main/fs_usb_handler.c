@@ -1,7 +1,3 @@
-/*
-    Remote for twin rotor helicopter
-    Last updated 4/14/2023 - Now uses the USB joystick "Logitech Extreme 3D Pro"
-*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -19,45 +15,17 @@
 
 #include "esp_random.h"
 #include "esp_event.h"
-#include "esp_netif.h"
-#include "esp_wifi.h"
 #include "esp_log.h"
-#include "esp_mac.h"
-#include "esp_now.h"
-#include "esp_crc.h"
 
 #include "usb/usb_host.h"
 #include "fs_hid_host.h"
 #include "fs_hid_usage_logitech_joystick.h"
-
-// The current state of the device
-int state = 0;
-
-// Variables with regards to connection to remote
-volatile bool _receivedRemoteHandshake = false; // Have we connected to the remote?
-volatile long _lastCommunicationWithRemote = 0; // Last time we heard from remote - used to infer connection issues
 
 // Variables with regards to USB joystick...
 #define APP_QUIT_PIN GPIO_NUM_0
 #define APP_QUIT_PIN_POLL_MS 500
 
 #define READY_TO_UNINSTALL (HOST_NO_CLIENT | HOST_ALL_FREE)
-
-volatile uint8_t lastButtonPress = 0;    // Joystick button, trigger = 1, BTN 2 = 2, BTN 3 = 4, BTN 4 = 8, BTN 5 = 10, BTN 6 = 20
-volatile uint8_t lastHatSwitchPress = 8; // Joystick hat switch, neutral = 8, right = 2, left = 6, up = 0, down = 4
-volatile uint8_t throttlePos = 0xFF;     // Throttle position, for some reason is reversed, 0xFF is zero pos, 0 is max
-volatile uint16_t lastStickR = 0x1FF;    // Joystick roll axis, 0x0 is left, 0x1FF is center, 0x3FF is right
-volatile uint16_t lastStickP = 0x1FF;    // Joystick pitch axis, 0x0 is forward, 0x1FF is center, 0x3FF is back
-volatile uint8_t lastStickY = 0x80;      // Joystick yaw axis, 0x0 is left, 0x80 is center, 0xFF is right
-
-volatile hid_stick_input_report_boot_t last_stick_report; // Previous message... (initialize with all 0)
-
-// Illustration of how the joystick can be used to control an aircraft
-volatile float _cmdPitch = 0; // Pitch  (0 = level) DEG/s
-volatile float _cmdRoll = 0; // Roll  (0 = level) DEG/s
-volatile float _cmdYaw = 0; // Yaw (0 = forward) DEG/s
-volatile float _cmdThrottlePercentage = 0; // Throttle strength in percent (0 - 100)
-
 /**
  * @brief Application Event from USB Host driver
  *
@@ -73,10 +41,11 @@ typedef enum
 
 #define USB_EVENTS_TO_WAIT (DEVICE_CONNECTED | DEVICE_ADDRESS_MASK | DEVICE_DISCONNECTED)
 
-// static const char *TAG = "example";
 static EventGroupHandle_t usb_flags;
 static bool is_hid_device_connected = false;
 static hid_host_interface_handle_t mouse_handle = NULL;
+
+volatile hid_stick_input_report_boot_t *last_stick_report;
 
 /**
  * @brief Makes new line depending on report output protocol type
@@ -96,12 +65,9 @@ static void hid_print_new_device_report_header(hid_protocol_t proto)
     ESP_LOGI("HID_NEW_DEVICE_REPORT", "!");
 }
 
-/**
- * @brief The joystick callback handler...
- *
- * @param[in] data    Pointer to input report data buffer
- * @param[in] length  Length of input report data buffer
- */
+/// @brief The callback for handling flight stick inputs (should not modify)
+/// @param dat 
+/// @param length 
 static void hid_flight_stick_cb(const uint8_t *const dat, const int length)
 {
     hid_stick_input_report_boot_t *stick_rep = (hid_stick_input_report_boot_t *)dat;
@@ -111,18 +77,12 @@ static void hid_flight_stick_cb(const uint8_t *const dat, const int length)
         ESP_LOGE("FS-CB", "Wrong size!");
         return;
     }
-
-    last_stick_report = *stick_rep;
-    // printf("P %X, R %X, Y %X, T %X, H %X, BA %X, BB %X", stick_rep->x, stick_rep->y, stick_rep->twist, stick_rep->slider, stick_rep->hat, stick_rep->buttons_a, stick_rep->buttons_b);
-    // fflush(stdout);
+    memcpy(last_stick_report, stick_rep, sizeof(hid_stick_input_report_boot_t));
 }
 
-/**
- * @brief USB HID Host event callback. Handle such event as device connection and removing
- *
- * @param[in] event  HID device event
- * @param[in] arg    Pointer to arguments, does not used
- */
+/// @brief Callback for handling USB HID host events (do not modify)
+/// @param event 
+/// @param arg 
 void hid_host_event_callback(const hid_host_event_t *event, void *arg)
 {
     if (event->event == HID_DEVICE_CONNECTED)
@@ -138,12 +98,9 @@ void hid_host_event_callback(const hid_host_event_t *event, void *arg)
     }
 }
 
-/**
- * @brief USB HID Host interface callback
- *
- * @param[in] event  HID interface event
- * @param[in] arg    Pointer to arguments, does not used
- */
+/// @brief Callback for handling USB HID host interface events (do not modify)
+/// @param event 
+/// @param arg 
 void hid_host_interface_event_callback(const hid_host_interface_event_t *event2, void *arg)
 {
     ESP_LOGI("HID_HOST_EVENT", "Proto: %X", event2->interface.proto);
@@ -178,11 +135,8 @@ void hid_host_interface_event_callback(const hid_host_interface_event_t *event2,
     }
 }
 
-/**
- * @brief Handle common USB host library events
- *
- * @param[in] args  Pointer to arguments, does not used
- */
+/// @brief USB host library event handler (do not modify)
+/// @param args 
 void handle_usb_events(void *args)
 {
     uint32_t event_flags;
@@ -213,151 +167,6 @@ void handle_usb_events(void *args)
 bool wait_for_event(EventBits_t event, TickType_t timeout)
 {
     return xEventGroupWaitBits(usb_flags, event, pdTRUE, pdTRUE, timeout) & event;
-}
-
-void parseInput() // The input parsing test function
-{
-    // hid_print_new_device_report_header(HID_PROTOCOL_NONE);
-    if (lastStickP != last_stick_report.y)
-    {
-        _cmdPitch = (float)last_stick_report.y - 0x1FF;
-        _cmdPitch /= 0x3FF;
-        //_cmdPitch *= 150/M_PI;
-        _cmdPitch /= 2.0f;
-        ESP_LOGI("CMDPITCH", "%.02f", _cmdPitch);
-    }
-    if (lastStickR != last_stick_report.x)
-    {
-        _cmdRoll = (float)last_stick_report.x - 0x1FF;
-        _cmdRoll /= 0x3FF;
-        _cmdRoll /= 2.0f;
-        //_cmdRoll *= 150/M_PI;
-        ESP_LOGI("CMDROLL", "%.02f", _cmdRoll);
-    }
-    if (lastStickY != last_stick_report.twist)
-    {
-        _cmdYaw = (float)last_stick_report.twist - 0x80;
-        _cmdYaw /= 0xFF;
-        _cmdYaw /= 4;
-        //_cmdYawRate *= 150/M_PI;
-        ESP_LOGI("CMDYAWRATE", "%.02f", _cmdYaw);
-    }
-    if (throttlePos != last_stick_report.slider)
-    {
-        _cmdThrottlePercentage = 0xFF - (float)last_stick_report.slider;
-        _cmdThrottlePercentage = _cmdThrottlePercentage / 255;
-        ESP_LOGI("CMDTHRTL", "%.02f", _cmdThrottlePercentage);
-    }
-    if (lastHatSwitchPress != last_stick_report.hat)
-    {
-        switch (last_stick_report.hat)
-        {
-        case 0:
-            ESP_LOGI("HAT", "UP");
-            break;
-
-        case 2:
-            ESP_LOGI("HAT", "RIGHT");
-            break;
-
-        case 4:
-            ESP_LOGI("HAT", "DOWN");
-            break;
-
-        case 6:
-            ESP_LOGI("HAT", "LEFT");
-            break;
-
-        case 8:
-            ESP_LOGI("HAT", "CENTER");
-            break;
-
-        default:
-            break;
-        }
-    }
-    if (lastButtonPress != last_stick_report.buttons_a)
-    {
-        switch (last_stick_report.buttons_a)
-        {
-        case 0:
-            ESP_LOGI("BTN", "NONE");
-            break;
-
-        case 1:
-            ESP_LOGI("BTN", "TRIGGER");
-
-            break;
-
-        case 2:
-            ESP_LOGI("BTN", "[2]");
-            break;
-
-        case 4:
-            ESP_LOGI("BTN", "[3]");
-            break;
-
-        case 8:
-            ESP_LOGI("BTN", "[4]");
-            break;
-
-        case 16:
-            ESP_LOGI("BTN", "[5]");
-            break;
-
-        case 32:
-            ESP_LOGI("BTN", "[6]");
-            break;
-        default:
-            break;
-        }
-    }
-
-    lastStickR = last_stick_report.x;
-    lastStickP = last_stick_report.y;
-    lastStickY = last_stick_report.twist;
-    throttlePos = last_stick_report.slider;
-    lastHatSwitchPress = last_stick_report.hat;
-    lastButtonPress = last_stick_report.buttons_a;
-}
-
-/// @brief Check connection to remote control (Every 96 ms)
-/// @param pvParam
-static void remote_conn(void *pvParam)
-{
-    TickType_t lastTaskTime = xTaskGetTickCount();
-    const TickType_t delay_time = pdMS_TO_TICKS(96);
-
-    TaskHandle_t search_for_remote_task = NULL; // The esp_now_ping task
-
-    uint8_t macADDRTemp[ESP_NOW_ETH_ALEN] = {0, 0, 0, 0, 0, 0};
-
-    while (true)
-    {
-        // ESP_LOGI("RAM USAGE","N");
-        switch (state)
-        {
-        case 0:
-            // ESP_LOGI("[RC-INFO]", "Awaiting connection!");
-
-            if (is_hid_device_connected)
-            {
-                state = 1; // Move to state 1 once an USB connection is identified...
-            }
-            break;
-        case 1:
-            parseInput();
-            // In case 1, we wait for the pingback task to give us a connection to a flight controller
-            // In the meantime, we do nothing...
-            break;
-        default:
-            // It should never reach this case...
-            break;
-        }
-        vTaskDelayUntil(&lastTaskTime, delay_time);
-        // vTaskDelay(delay_time);
-    }
-    vTaskDelete(NULL);
 }
 
 static void usb_core_task(void *p)
@@ -487,13 +296,12 @@ static void usb_core_task(void *p)
     vTaskDelete(NULL);
 }
 
-/// @brief Initialization
-/// @param
-void app_main(void)
+/// @brief Initialize the joystick USB driver
+/// @param lst The pointer to the storage container for joystick status
+void initialize_usb_joystick(hid_stick_input_report_boot_t *lst)
 {
-    mouse_handle = NULL;
-    ESP_LOGI("MAIN", "Initializing!");
-    xTaskCreatePinnedToCore(remote_conn, "remote_conn", 4096, (void *)1, 9, NULL, 0); // Task for remote control
-    vTaskDelay(500 / portTICK_PERIOD_MS);
-    xTaskCreatePinnedToCore(usb_core_task, "usb_init", 4096, (void *)1, 8, NULL, 1); // Task for USB stuff
+    last_stick_report = lst;
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+    xTaskCreatePinnedToCore(usb_core_task, "usb_init", 4096, (void *)1, 8, NULL, 1); // USB task
+    vTaskDelay(50 / portTICK_PERIOD_MS);
 }

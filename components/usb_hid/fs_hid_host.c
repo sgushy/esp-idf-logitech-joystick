@@ -720,15 +720,15 @@ static esp_err_t hid_class_request_set(hid_device_t *hid_device,
                                        uint16_t wIndex,
                                        uint16_t wLength)
 {
-    ESP_LOGD(TAG,"CC");
+    //ESP_LOGD(TAG,"CC");
     esp_err_t ret;
     usb_transfer_t *ctrl_xfer = hid_device->ctrl_xfer;
     HID_RETURN_ON_INVALID_ARG(hid_device);
     HID_RETURN_ON_INVALID_ARG(hid_device->ctrl_xfer);
-    ESP_LOGD(TAG,"DD");
+    //ESP_LOGD(TAG,"DD");
     HID_RETURN_ON_ERROR( hid_device_wait_ready(hid_device, 5000 /* timeout */) );
     HID_RETURN_ON_ERROR( hid_device_claim(hid_device, 5000 /* timeout */) );
-    ESP_LOGD(TAG,"EE");
+    //ESP_LOGD(TAG,"EE");
     usb_setup_packet_t *setup = (usb_setup_packet_t *)ctrl_xfer->data_buffer;
     setup->bmRequestType = USB_BM_REQUEST_TYPE_DIR_OUT |
                            USB_BM_REQUEST_TYPE_TYPE_CLASS |
@@ -737,11 +737,11 @@ static esp_err_t hid_class_request_set(hid_device_t *hid_device,
     setup->wValue = wValue;
     setup->wIndex = wIndex;
     setup->wLength = wLength;
-    ESP_LOGD(TAG,"FF");
+    //ESP_LOGD(TAG,"FF");
     ret = hid_control_transfer(hid_device, ctrl_xfer, USB_SETUP_PACKET_SIZE, 5000 /* timeout */);
-    ESP_LOGD(TAG,"GG");
+    //ESP_LOGD(TAG,"GG");
     hid_device_release(hid_device);
-    ESP_LOGD(TAG,"HH");
+    //ESP_LOGD(TAG,"HH");
     return ret;
 }
 
@@ -810,9 +810,9 @@ static esp_err_t hid_class_request_set_idle(hid_iface_t *iface,
         uint8_t duration,
         uint8_t report_id)
 {
-    ESP_LOGD(TAG,"AA");
+    //ESP_LOGD(TAG,"AA");
     HID_RETURN_ON_INVALID_ARG(iface);
-    ESP_LOGD(TAG,"BB");
+    //ESP_LOGD(TAG,"BB");
     return hid_class_request_set(iface->dev,
                                  HID_CLASS_SPECIFIC_REQ_SET_IDLE,
                                  (duration << 8) | report_id,

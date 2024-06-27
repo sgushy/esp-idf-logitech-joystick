@@ -1,7 +1,7 @@
 <h1>ESP32-S3 driver for "Logitech Extreme 3D Pro" joystick</h1> 
 
 The Logitech Extreme 3D Pro is an ubitiquous and inexpensive joystick commonly used for games and flight simulators on the PC.
-This library ports it to be used with ESP32-S3 on the ESP-IDF platform. 
+This repository ports it to be used with ESP32-S3 on the ESP-IDF platform. 
 
 <h2>Setup and Usage</h2>
 

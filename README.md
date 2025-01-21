@@ -6,6 +6,7 @@ This repository ports it to be used with ESP32-S3 on the ESP-IDF platform.
 <h2>Setup and Usage</h2>
 
 NOTE: In theory, this code can be used on any ESP32 variant which has a USB Host functionality, but it has only been tested on ESP32-S3. 
+NOTE 2: You will likely need to supply extra power to the joystick.
 
 <li>Clone the repository to your computer, such as using <code>git clone https://github.com/sgushy/esp-idf-logitech-joystick.git</code></li>
 
